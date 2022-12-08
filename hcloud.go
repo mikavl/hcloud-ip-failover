@@ -56,17 +56,17 @@ func (r *Resources) ReadSecondaryServer(ctx context.Context, client *hcloud.Serv
 	return err
 }
 
-func (r *Resources) Read(ctx context.Context, client *hcloud.Client) error {
+func (r *Resources) Read(ctx context.Context, client *hcloud.Client, args *Args) error {
 	eg, ectx := errgroup.WithContext(ctx)
 
-	eg.Go(func() error { return r.ReadFloatingIP(ectx, &client.FloatingIP, floatingIPName) })
-	eg.Go(func() error { return r.ReadNetwork(ectx, &client.Network, networkName)	})
-	eg.Go(func() error { return r.ReadPrimaryServer(ectx, &client.Server, primaryServerName)	})
-	eg.Go(func() error { return r.ReadSecondaryServer(ectx, &client.Server, secondaryServerName)	})
+	eg.Go(func() error { return r.ReadFloatingIP(ectx, &client.FloatingIP, args.floatingIPName) })
+	eg.Go(func() error { return r.ReadNetwork(ectx, &client.Network, args.networkName)	})
+	eg.Go(func() error { return r.ReadPrimaryServer(ectx, &client.Server, args.primaryServerName)	})
+	eg.Go(func() error { return r.ReadSecondaryServer(ectx, &client.Server, args.secondaryServerName)	})
 
 	err := eg.Wait()
 
-	if primaryServerAvailable {
+	if args.primaryServerAvailable {
 		r.target = r.primaryServer
 		r.other = r.secondaryServer
 	} else {
@@ -141,8 +141,8 @@ func ReadToken(tokenPath string) (string, error) {
 	return strings.TrimSpace(string(token)), nil
 }
 
-func Execute(ctx context.Context) error {
-	token, err := ReadToken(tokenPath)
+func Execute(ctx context.Context, args *Args) error {
+	token, err := ReadToken(args.tokenPath)
 	if err != nil {
 		return err
 	}
@@ -150,7 +150,7 @@ func Execute(ctx context.Context) error {
 	client := hcloud.NewClient(hcloud.WithToken(token))
 	res := NewResources()
 
-	if err := res.Read(ctx, client); err != nil {
+	if err := res.Read(ctx, client, args); err != nil {
 		return err
 	}
 
@@ -168,7 +168,7 @@ func Execute(ctx context.Context) error {
 		}
 
 		// Assign alias IP to target
-		if err := AssignAliasIP(ectx, client, res.network, res.target, aliasIP); err != nil {
+		if err := AssignAliasIP(ectx, client, res.network, res.target, args.aliasIP); err != nil {
 			return err
 		}
 

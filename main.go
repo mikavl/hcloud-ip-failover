@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -22,7 +23,7 @@ const (
 	defaultNetworkName = "lan"
 )
 
-var (
+type Args struct {
 	tokenPath string
 	floatingIPName string
 	primaryServerName string
@@ -31,56 +32,64 @@ var (
 
 	primaryServerAvailable bool
 	aliasIP net.IP
-)
+}
 
-func parseArgs() {
+func NewArgs() (*Args) {
+	args := new(Args)
+	return args
+}
+
+func ParseArgs() (*Args, error) {
 	var aliasIPArg string
 
+	args := NewArgs()
+
 	flag.StringVar(&aliasIPArg, "alias-ip", defaultAliasIP, "alias ip address")
-	flag.StringVar(&tokenPath, "token-path", "", fmt.Sprintf(`hcloud token file path (default "~/%s")`, defaultTokenFile))
-	flag.StringVar(&floatingIPName, "floating-ip-name", defaultFloatingIPName, "floating ip address name")
-	flag.StringVar(&primaryServerName, "primary-server-name", defaultPrimaryServerName, "primary server name")
-	flag.StringVar(&secondaryServerName, "secondary-server-name", defaultSecondaryServerName, "secondary server name")
-	flag.StringVar(&networkName, "network-name", defaultNetworkName, "network name")
+	flag.StringVar(&args.tokenPath, "token-path", "", fmt.Sprintf(`hcloud token file path (default "~/%s")`, defaultTokenFile))
+	flag.StringVar(&args.floatingIPName, "floating-ip-name", defaultFloatingIPName, "floating ip address name")
+	flag.StringVar(&args.primaryServerName, "primary-server-name", defaultPrimaryServerName, "primary server name")
+	flag.StringVar(&args.secondaryServerName, "secondary-server-name", defaultSecondaryServerName, "secondary server name")
+	flag.StringVar(&args.networkName, "network-name", defaultNetworkName, "network name")
 	flag.Parse()
 
-	positionalArgs := flag.Args()
-	if len(positionalArgs) < 2 {
-		log.Fatal("missing required positional args, see --help")
-	}
-
-	if aliasIP = net.ParseIP(aliasIPArg); aliasIP == nil {
-		log.WithFields(log.Fields{
-			"aliasIP": aliasIPArg,
-		}).Fatal("failed to parse alias ip")
-	}
-
 	// the alert_cmd is invoked as "alert_cmd dest_addr alarm_flag latency_avg loss_avg"
-	alarm := positionalArgs[1]
-	alarmInt, err := strconv.ParseInt(alarm, 10, 0)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"alarm": alarm,
-		}).Fatal("failed to parse alarm")
+	positionalArgs := flag.Args()
+
+	if len(positionalArgs) < 2 {
+		return nil, errors.New("missing required positional args")
 	}
 
-	switch alarmInt {
-	case 0:
-		primaryServerAvailable = true
-	case 1:
-		primaryServerAvailable = false
-	default:
-		log.WithFields(log.Fields{
-			"alarmInt": alarmInt,
-		}).Fatal("invalid alarm, expected 0 or 1")
+	if args.aliasIP = net.ParseIP(aliasIPArg); args.aliasIP == nil {
+		return nil, errors.New("failed to parse alias ip")
 	}
+
+	alarm, err := strconv.ParseInt(positionalArgs[1], 10, 0)
+	if err != nil {
+		return nil, errors.New("failed to parse alarm, expected 0 or 1")
+	}
+
+	if alarm == 0 {
+		args.primaryServerAvailable = true
+	} else if alarm == 1 {
+		args.primaryServerAvailable = false
+	} else {
+		return nil, errors.New("invalid alarm, expected 0 or 1")
+	}
+
+	return args, nil
 }
 
 func main() {
-	parseArgs()
+	args, err := ParseArgs()
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": err,
+		}).Fatal("failed to parse command line arguments")
+	}
+
 	ctx := context.Background()
 
-	if err := Execute(ctx); err != nil {
+	if err := Execute(ctx, args); err != nil {
 		log.WithFields(log.Fields{
 			"err": err,
 		}).Fatal("failover unsuccessful")
