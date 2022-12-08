@@ -105,17 +105,35 @@ func AssignAliasIP(ctx context.Context, client *hcloud.Client, network *hcloud.N
 	return WaitAction(ctx, &client.Action, action)
 }
 
-func readToken(tokenPath string) (string, error) {
-	if tokenPath == "" {
-		homeDir, err := os.UserHomeDir()
+func AssignFloatingIP(ctx context.Context, client *hcloud.Client, server *hcloud.Server, floatingIP *hcloud.FloatingIP) error {
+	action, _, err := client.FloatingIP.Assign(ctx, floatingIP, server)
+	if err != nil {
+		return err
+	}
+
+	return WaitAction(ctx, &client.Action, action)
+}
+
+func TokenPath(tokenPath string) (string, error) {
+	if tokenPath != "" {
+		return tokenPath, nil
+	}
+
+	homeDir, err := os.UserHomeDir()
 		if err != nil {
 			return "", err
 		}
 
-		tokenPath = path.Join(homeDir, defaultTokenFile)
+	return path.Join(homeDir, defaultTokenFile), nil
+}
+
+func ReadToken(tokenPath string) (string, error) {
+	p, err := TokenPath(tokenPath)
+	if err != nil {
+		return "", err
 	}
 
-	token, err := ioutil.ReadFile(tokenPath)
+	token, err := ioutil.ReadFile(p)
 	if err != nil {
 		return "", err
 	}
@@ -123,14 +141,11 @@ func readToken(tokenPath string) (string, error) {
 	return strings.TrimSpace(string(token)), nil
 }
 
-
-
-func execute(ctx context.Context) error {
-	token, err := readToken(tokenPath)
+func Execute(ctx context.Context) error {
+	token, err := ReadToken(tokenPath)
 	if err != nil {
 		return err
 	}
-
 
 	client := hcloud.NewClient(hcloud.WithToken(token))
 	res := NewResources()
@@ -142,11 +157,8 @@ func execute(ctx context.Context) error {
 	eg, ectx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		action, _, err := client.FloatingIP.Assign(ectx, res.floatingIP, res.target)
-		if err != nil {
-			return err
-		}
-		return WaitAction(ectx, &client.Action, action)
+		// Assign floating IP to target
+		return AssignFloatingIP(ectx, client, res.target, res.floatingIP)
 	})
 
 	eg.Go(func() error {

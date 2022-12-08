@@ -80,7 +80,7 @@ func main() {
 	parseArgs()
 	ctx := context.Background()
 
-	if err := execute(ctx); err != nil {
+	if err := Execute(ctx); err != nil {
 		log.WithFields(log.Fields{
 			"err": err,
 		}).Fatal("failover unsuccessful")
