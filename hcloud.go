@@ -22,57 +22,78 @@ type Resources struct {
 	other *hcloud.Server
 }
 
-func readResources(ctx context.Context, client *hcloud.Client) (Resources, error) {
-	var res Resources
+func NewResources() (*Resources) {
+	r := new(Resources)
+	return r
+}
 
+func (r *Resources) ReadFloatingIP(ctx context.Context, client *hcloud.FloatingIPClient, name string) error {
+	var err error
+	r.floatingIP, _, err = client.GetByName(ctx, name)
+	return err
+}
+
+func (r *Resources) ReadNetwork(ctx context.Context, client *hcloud.NetworkClient, name string) error {
+	var err error
+	r.network, _, err = client.GetByName(ctx, name)
+	return err
+}
+
+func ReadServer(ctx context.Context, client *hcloud.ServerClient, name string) (*hcloud.Server, error) {
+	server, _, err := client.GetByName(ctx, name)
+	return server, err
+}
+
+func (r *Resources) ReadPrimaryServer(ctx context.Context, client *hcloud.ServerClient, name string) error {
+	var err error
+	r.primaryServer, err = ReadServer(ctx, client, name)
+	return err
+}
+
+func (r *Resources) ReadSecondaryServer(ctx context.Context, client *hcloud.ServerClient, name string) error {
+	var err error
+	r.secondaryServer, err = ReadServer(ctx, client, name)
+	return err
+}
+
+func (r *Resources) Read(ctx context.Context, client *hcloud.Client) error {
 	eg, ectx := errgroup.WithContext(ctx)
 
-	eg.Go(func() error {
-		var err error
-		res.floatingIP, _, err = client.FloatingIP.GetByName(ctx, floatingIPName)
-		return err
-	})
-
-	eg.Go(func() error {
-		var err error
-		res.network, _, err = client.Network.GetByName(ctx, networkName)
-		return err
-	})
-
-	eg.Go(func() error {
-		var err error
-		res.primaryServer, _, err = client.Server.GetByName(ectx, primaryServerName)
-		return err
-	})
-
-	eg.Go(func() error {
-		var err error
-		res.secondaryServer, _, err = client.Server.GetByName(ectx, secondaryServerName)
-		return err
-	})
+	eg.Go(func() error { return r.ReadFloatingIP(ectx, &client.FloatingIP, floatingIPName) })
+	eg.Go(func() error { return r.ReadNetwork(ectx, &client.Network, networkName)	})
+	eg.Go(func() error { return r.ReadPrimaryServer(ectx, &client.Server, primaryServerName)	})
+	eg.Go(func() error { return r.ReadSecondaryServer(ectx, &client.Server, secondaryServerName)	})
 
 	err := eg.Wait()
 
 	if primaryServerAvailable {
-		res.target = res.primaryServer
-		res.other = res.secondaryServer
+		r.target = r.primaryServer
+		r.other = r.secondaryServer
 	} else {
-		res.target = res.secondaryServer
-		res.other = res.primaryServer
+		r.target = r.secondaryServer
+		r.other = r.primaryServer
 	}
 
-	return res, err
+	return err
 }
 
-func WaitAction(ctx context.Context, client *hcloud.Client, action *hcloud.Action) error {
-	_, errc := client.Action.WatchProgress(ctx, action)
+func WaitAction(ctx context.Context, client *hcloud.ActionClient, action *hcloud.Action) error {
+	_, errc := client.WatchProgress(ctx, action)
 	err := <-errc
 	return err
 }
 
-func assignAliasIPs(ctx context.Context, client *hcloud.Client, network *hcloud.Network, server *hcloud.Server, aliasIPs []net.IP) error {
+func AssignAliasIP(ctx context.Context, client *hcloud.Client, network *hcloud.Network, server *hcloud.Server, aliasIP net.IP) error {
+	var aliasIPs []net.IP
+
+	if aliasIP != nil {
+		aliasIPs = []net.IP{
+			aliasIP,
+		}
+	}
+
 	opts := hcloud.ServerChangeAliasIPsOpts{
-		Network:  network,
+		Network: network,
 		AliasIPs: aliasIPs,
 	}
 
@@ -81,7 +102,7 @@ func assignAliasIPs(ctx context.Context, client *hcloud.Client, network *hcloud.
 		return err
 	}
 
-	return WaitAction(ctx, client, action)
+	return WaitAction(ctx, &client.Action, action)
 }
 
 func readToken(tokenPath string) (string, error) {
@@ -102,21 +123,19 @@ func readToken(tokenPath string) (string, error) {
 	return strings.TrimSpace(string(token)), nil
 }
 
-func execute(ctx context.Context) error {
-	var otherIPs []net.IP
-	targetIPs := []net.IP{
-		aliasIP,
-	}
 
+
+func execute(ctx context.Context) error {
 	token, err := readToken(tokenPath)
 	if err != nil {
 		return err
 	}
 
-	client := hcloud.NewClient(hcloud.WithToken(token))
 
-	res, err := readResources(ctx, client)
-	if err != nil {
+	client := hcloud.NewClient(hcloud.WithToken(token))
+	res := NewResources()
+
+	if err := res.Read(ctx, client); err != nil {
 		return err
 	}
 
@@ -127,15 +146,21 @@ func execute(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		return WaitAction(ectx, client, action)
+		return WaitAction(ectx, &client.Action, action)
 	})
 
 	eg.Go(func() error {
-		if err := assignAliasIPs(ectx, client, res.network, res.other, otherIPs); err != nil {
+		// Remove alias IP from other
+		if err := AssignAliasIP(ectx, client, res.network, res.other, nil); err != nil {
 			return err
 		}
 
-		return assignAliasIPs(ectx, client, res.network, res.target, targetIPs)
+		// Assign alias IP to target
+		if err := AssignAliasIP(ectx, client, res.network, res.target, aliasIP); err != nil {
+			return err
+		}
+
+		return nil
 	})
 
 	return eg.Wait()
