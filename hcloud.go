@@ -13,16 +13,16 @@ import (
 )
 
 type Resources struct {
-	floatingIP *hcloud.FloatingIP
-	network *hcloud.Network
-	primaryServer *hcloud.Server
+	floatingIP      *hcloud.FloatingIP
+	network         *hcloud.Network
+	primaryServer   *hcloud.Server
 	secondaryServer *hcloud.Server
 
 	target *hcloud.Server
-	other *hcloud.Server
+	other  *hcloud.Server
 }
 
-func NewResources() (*Resources) {
+func NewResources() *Resources {
 	r := new(Resources)
 	return r
 }
@@ -60,9 +60,9 @@ func (r *Resources) Read(ctx context.Context, client *hcloud.Client, args *Args)
 	eg, ectx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error { return r.ReadFloatingIP(ectx, &client.FloatingIP, args.floatingIPName) })
-	eg.Go(func() error { return r.ReadNetwork(ectx, &client.Network, args.networkName)	})
-	eg.Go(func() error { return r.ReadPrimaryServer(ectx, &client.Server, args.primaryServerName)	})
-	eg.Go(func() error { return r.ReadSecondaryServer(ectx, &client.Server, args.secondaryServerName)	})
+	eg.Go(func() error { return r.ReadNetwork(ectx, &client.Network, args.networkName) })
+	eg.Go(func() error { return r.ReadPrimaryServer(ectx, &client.Server, args.primaryServerName) })
+	eg.Go(func() error { return r.ReadSecondaryServer(ectx, &client.Server, args.secondaryServerName) })
 
 	err := eg.Wait()
 
@@ -93,7 +93,7 @@ func AssignAliasIP(ctx context.Context, client *hcloud.Client, network *hcloud.N
 	}
 
 	opts := hcloud.ServerChangeAliasIPsOpts{
-		Network: network,
+		Network:  network,
 		AliasIPs: aliasIPs,
 	}
 
@@ -120,9 +120,9 @@ func TokenPath(tokenPath string) (string, error) {
 	}
 
 	homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
+	if err != nil {
+		return "", err
+	}
 
 	return path.Join(homeDir, defaultTokenFile), nil
 }
@@ -177,4 +177,3 @@ func Execute(ctx context.Context, args *Args) error {
 
 	return eg.Wait()
 }
-

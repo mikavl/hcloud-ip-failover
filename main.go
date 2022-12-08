@@ -11,11 +11,11 @@ const (
 	defaultTokenFile = ".hcloud_token"
 
 	// See --help to override these as needed
-	defaultAliasIP = "10.0.0.3"
-	defaultFloatingIPName = "pfsense"
-	defaultPrimaryServerName = "pfsense-01"
+	defaultAliasIP             = "10.0.0.3"
+	defaultFloatingIPName      = "pfsense"
+	defaultPrimaryServerName   = "pfsense-01"
 	defaultSecondaryServerName = "pfsense-02"
-	defaultNetworkName = "lan"
+	defaultNetworkName         = "lan"
 )
 
 func main() {

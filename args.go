@@ -10,17 +10,17 @@ import (
 )
 
 type Args struct {
-	tokenPath string
-	floatingIPName string
-	primaryServerName string
+	tokenPath           string
+	floatingIPName      string
+	primaryServerName   string
 	secondaryServerName string
-	networkName string
+	networkName         string
 
 	primaryServerAvailable bool
-	aliasIP net.IP
+	aliasIP                net.IP
 }
 
-func NewArgs() (*Args) {
+func NewArgs() *Args {
 	args := new(Args)
 	return args
 }
