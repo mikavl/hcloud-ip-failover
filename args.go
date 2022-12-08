@@ -9,6 +9,18 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
+const (
+	// Default token file name, located in the user's home directory
+	defaultTokenFile = ".hcloud_token"
+
+	// See --help to override these as needed
+	defaultAliasIP             = "10.0.0.3"
+	defaultFloatingIPName      = "pfsense"
+	defaultPrimaryServerName   = "pfsense-01"
+	defaultSecondaryServerName = "pfsense-02"
+	defaultNetworkName         = "lan"
+)
+
 type Args struct {
 	tokenPath           string
 	floatingIPName      string
