@@ -52,18 +52,17 @@ func ParseArgs() (*Args, error) {
 	flag.StringVar(&args.networkName, "network-name", defaultNetworkName, "network name")
 	flag.Parse()
 
-	// the alert_cmd is invoked as "alert_cmd dest_addr alarm_flag latency_avg loss_avg"
 	positionalArgs := flag.Args()
 
-	if len(positionalArgs) < 2 {
-		return nil, errors.New("missing required positional args")
+	if len(positionalArgs) != 1 {
+		return nil, errors.New("invalid number of positional args")
 	}
 
 	if args.aliasIP = net.ParseIP(aliasIPArg); args.aliasIP == nil {
 		return nil, errors.New("failed to parse alias ip")
 	}
 
-	alarm, err := strconv.ParseInt(positionalArgs[1], 10, 0)
+	alarm, err := strconv.ParseInt(positionalArgs[0], 10, 0)
 	if err != nil {
 		return nil, errors.New("failed to parse alarm, expected 0 or 1")
 	}
