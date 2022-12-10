@@ -12,17 +12,17 @@ Perform the following actions on the *secondary* (backup) system:
 
 1. Run the following commands to download a release, extract it to `/root` (or some other directory) and ensure it is executable:
 
-    curl -sSL https://github.com/mikavl/hcloud-ip-failover/releases/download/v0.0.1/hcloud-ip-failover-v0.0.1-freebsd-amd64.tar.gz | tar -xzC /root
-    chown root:root /root/hcloud-ip-failover
-    chmod 0755 /root/hcloud-ip-failover
+       curl -sSL https://github.com/mikavl/hcloud-ip-failover/releases/download/v1.0.0/hcloud-ip-failover-v1.0.0-freebsd-amd64.tar.gz | tar -xzf - -C /root
+       chown root:root /root/hcloud-ip-failover
+       chmod 0755 /root/hcloud-ip-failover
 
 2. Create a Hetzner Cloud token and place it in `/root/.hcloud_token`, or place it somewhere else and add the `--token-path` argument to the binary in the next step.
 
 3. Add a call to `/root/hcloud-ip-failover` to `/etc/rc.gateway_alarm` in order to trigger the failover action when the primary system stops responding on the `SYNC` interface or comes back up:
 
-    # Change the gateway name to whatever you configured on the primary system
-    if [ "xPRIMARY_SYNC_GW" = "x$GW" ]; then
-      /root/hcloud-ip-failover "$alarm_flag" > /dev/null 2>&1
-    fi
+       # Change the gateway name to whatever you configured on the primary system
+       if [ "xPRIMARY_SYNC_GW" = "x$GW" ]; then
+         /root/hcloud-ip-failover "$alarm_flag" > /dev/null 2>&1
+       fi
 
-4. Test! Shut down the primary, or block ICMP ping on the `SYNC` interface, and ensure that the floating and alias IPs get assigned to the secondary as intended. Bring the primary up again and see that the IPs get assigned back to it.
+4. Test! Shut down the primary, or block ICMP ping on the `SYNC` interface, and ensure that the floating and alias IPs get assigned to the secondary as intended. Bring the primary up again and verify that the IPs get assigned back to it.
